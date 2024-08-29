@@ -68,7 +68,7 @@ case "${CMD}" in
         ;;
 esac
 
-SCRIPT_PATH="${SCRIPTS_ROOT}/${CMD}.sh"
+SCRIPT_PATH="${SCRIPTS_ROOT}${CMD}.sh"
 if [ -f "${SCRIPT_PATH}" ]; then
     if [ -n "${PARAMS}" ]; then
         exec "${SCRIPT_PATH}" "${PARAMS}"
