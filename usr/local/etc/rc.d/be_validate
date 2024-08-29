@@ -12,7 +12,7 @@ rcvar="be_validate_enable"
 load_rc_config $name
 
 : ${be_validate_enable="NO"}
-: ${be_validate_check_services="openvpn sshd vultured"}
+: ${be_validate_check_services="jail vultured"}
 
 name="be_validate"
 desc="Automatically validate a transient Boot Environment"
@@ -31,7 +31,7 @@ do_be_validate()
                 echo "be_validate: Checking service ${service}"
                 if service "${service}" enabled; then
                     echo "be_validate: ${service} enabled, checking status..."
-                    if ! service "${service}" status; then
+                    if ! service "${service}" status > /dev/null; then
                         echo "be_validate: ${service} doesn't seem to work!"
                         _everything_works=0
                     fi
