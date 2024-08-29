@@ -20,7 +20,7 @@ SCRIPTS_ROOT=/usr/local/share/vulture-utils/
 . /usr/local/share/vulture-utils/common.sh
 
 ## version
-UTILS_VERSION="0.1"
+: "${UTILS_VERSION:=cat /usr/local/share/vulture-utils/VERSION}" "${UTILS_VERSION:=unknown}"
 
 usage() {
     cat << EOF
