@@ -2,7 +2,7 @@
 
 TIME_START="$(date -Iseconds)"
 TIME_START_SAFE="$(date +%Y%m%d_%H%M%S)"
-. /usr/local/share/vulture/common.sh
+. /usr/local/share/vulture-utils/common.sh
 
 ###########
 # options #

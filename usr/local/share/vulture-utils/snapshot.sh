@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 
-. /usr/local/share/vulture/common.sh
+. /usr/local/share/vulture-utils/common.sh
 
 #############
 # variables #

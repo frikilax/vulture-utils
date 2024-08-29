@@ -15,9 +15,9 @@
 # If not, see <https://www.gnu.org/licenses/>.
 
 PATH=${PATH}:/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin
-SCRIPTS_ROOT=/usr/local/share/vulture/
+SCRIPTS_ROOT=/usr/local/share/vulture-utils/
 
-. /usr/local/share/vulture/common.sh
+. /usr/local/share/vulture-utils/common.sh
 
 ## version
 UTILS_VERSION="0.1"
