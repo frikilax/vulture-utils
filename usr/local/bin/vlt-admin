@@ -6,11 +6,11 @@
 # This program is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published
 # by the Free Software Foundation, version 3.
-# 
+#
 # This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
 # without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 # See the GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License along with this program.
 # If not, see <https://www.gnu.org/licenses/>.
 
@@ -70,10 +70,15 @@ esac
 
 SCRIPT_PATH="${SCRIPTS_ROOT}${CMD}.sh"
 if [ -f "${SCRIPT_PATH}" ]; then
+    : "${UMASK:=022}"
+    umask "${UMASK}"
+
+    : "${SH:=sh}"
+
     if [ -n "${PARAMS}" ]; then
-        exec "${SCRIPT_PATH}" "${PARAMS}"
+        exec "${SH}" "${SCRIPT_PATH}" "${PARAMS}"
     else
-        exec "${SCRIPT_PATH}" "$@"
+        exec "${SH}" "${SCRIPT_PATH}" "$@"
     fi
 else
     error_and_exit "${SCRIPT_PATH} not found."
