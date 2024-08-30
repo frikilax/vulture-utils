@@ -13,6 +13,10 @@ rcvar="zfs_restore_enable"
 start_cmd="do_zfs_restore"
 required_modules="zfs"
 
+load_rc_config $name
+
+: ${zfs_restore_enable="YES"}
+
 do_zfs_restore()
 {
     _bootonce="$(kenv -q zfs-bootonce)"
@@ -30,5 +34,4 @@ do_zfs_restore()
     done
 }
 
-load_rc_config $name
 run_rc_command "$1"
