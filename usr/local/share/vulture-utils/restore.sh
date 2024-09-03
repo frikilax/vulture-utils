@@ -21,7 +21,7 @@ _need_restart=0
 # functions #
 #############
 usage() {
-    echo "USAGE ${0} OPTIONS"
+    echo "USAGE restore OPTIONS"
     echo "This stript triggers rollbacks on all or specific datasets, machine should then be restarted to apply the rollbacks"
     echo ""
     echo "OPTIONS:"

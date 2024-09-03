@@ -19,7 +19,7 @@ _mongo_locked=0
 # functions #
 #############
 usage() {
-    echo "USAGE ${0} OPTIONS"
+    echo "USAGE snapshot OPTIONS"
     echo "OPTIONS:"
     echo "	-A	Snapshot all underlying datasets"
     echo "	-S	Snapshot the system dataset(s)"
