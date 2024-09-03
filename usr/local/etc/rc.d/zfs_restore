@@ -21,13 +21,13 @@ do_zfs_restore()
 {
     _bootonce="$(kenv -q zfs-bootonce)"
     if [ -n "${_bootonce}" ]; then
-        echo "Not restoring ZFS datasets because machine is on a temporary BE"
+        echo "zfs_restore: Not restoring ZFS datasets because machine is on a temporary BE"
         return
     fi
     zfs list -tsnap -oname,snapshot:restore |\
     while read -r _name _need_restore; do
         if [ "$_need_restore" = "YES" ]; then
-            echo "Rollbacking snapshot '${_name}'"
+            echo "zfs_restore: Rollbacking snapshot '${_name}'"
             zfs rollback -r "${_name}"
             zfs inherit snapshot:restore "${_name}"
         fi
