@@ -30,7 +30,8 @@ Usage:
   vlt-admin <command> [args]
 
 Available Commands:
-	upgrade		Upgrade the system or the packages.
+	upgrade-os	Upgrade the system.
+	upgrade-pkg	Upgrade the packages.
 	snapshot	Create and manage machine ZFS snapshots.
 	restore		Use Snapshots to rollback all or parts of the machine.
 
@@ -60,10 +61,11 @@ case "${CMD}" in
             PARAMS='-h'
         fi
         ;;
-    upgrade)
+    upgrade-os|upgrade-pkg)
         # Nothing to do specificaly for there commands (apart from launching them)
         ;;
     *) # Print usage if sub-command is unknown
+        error "unknown command ${CMD}"
         usage
         ;;
 esac

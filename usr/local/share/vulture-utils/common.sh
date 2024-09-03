@@ -8,6 +8,8 @@ TEXT_BLINK='\033[5m'
 
 SNAPSHOT_PREFIX="VLT_"
 
+JAILS_LIST="apache haproxy mongodb portal redis rsyslog"
+
 AVAILABLE_DATASET_TYPES="SYSTEM JAIL DB HOMES TMPVAR"
 SYSTEM_DATASETS="ROOT/$(/sbin/mount -l | /usr/bin/grep "on / " | /usr/bin/cut -d ' ' -f 1 | /usr/bin/cut -d / -f 3)"
 JAIL_DATASETS="apache apache/var apache/usr portal portal/var portal/usr haproxy haproxy/var haproxy/usr mongodb mongodb/var mongodb/usr redis redis/var redis/usr rsyslog rsyslog/var rsyslog/usr"
@@ -75,6 +77,125 @@ reset_motd() {
     /usr/sbin/service motd restart
 }
 
+get_jail_list() {
+    echo "${JAILS_LIST}"
+}
+
+has_upgraded_kernel() {
+    if [ "$(/usr/bin/uname -U)" -eq "$(/usr/bin/uname -K)" ]; then
+        return 0
+    else
+        /usr/bin/sed -i '' '/Upgrade:/d' /var/run/motd
+        error_and_blink "Upgrade: the system has a pending kernel/userland upgrade, please restart your machine to apply!" | /usr/bin/tee -a /var/run/motd
+        return 1
+    fi
+}
+
+#################
+## hbsd-update ##
+#################
+
+download_system_update() {
+    local _temp_dir="$1"
+    local _use_dnssec="$2"
+    local _system_version="$3"
+
+    local _options=""
+
+    if [ -f /usr/sbin/hbsd-update ] ; then
+        if [ $_use_dnssec -eq 0 ]; then _options="${_options} -d"; fi
+        if [ -n "$_system_version" ]; then
+            # Add -U as non-last update versions cannot be verified
+            echo "[!] Custom version of system update selected, this version will be installed without signature verification!"
+            _options="${_options} -v $_system_version -U"
+        fi
+        if [ ! -f "${_temp_dir}/update.tar" ]; then
+            # Store (-t) and keep (-T) downloads to ${_temp_dir} for later use
+            # Do not install update yet (-f)
+            /usr/sbin/hbsd-update -t "${_temp_dir}" -T -f $_options
+        fi
+        if [ $? -ne 0 ] ; then return 1 ; fi
+    else
+        error_and_exit "[!] Cannot upgrade FreeBSD systems, need HardenedBSD!"
+    fi
+}
+
+update_jail_system() {
+    local _jail="$1"
+    local _temp_dir="$2"
+    local _resolve_strategy="$3"
+    local _system_version="$4"
+
+    local _options=""
+
+    if [ -f /usr/sbin/hbsd-update ] ; then
+        # If a jail is specified, execute update in it
+        if [ -n "$jail" ] ; then
+            if [ -d /.jail_system ]; then
+                # upgrade base jail_system root with local hbsd-update.conf (for "thin" jails)
+                _options="-n -r /.jail_system/"
+            else
+                # use -j flag from hbsd-update to let it handle upgrade of "full" jail
+                _options="-n -j $jail"
+            fi
+        fi
+        if [ -n "$system_version" ]; then
+            # Add -U as non-last update versions cannot be verified
+            echo "[!] Custom version of system update selected, this version will be installed without signature verification!"
+            _options="${_options} -v $system_version -U"
+        fi
+        # Store (-t) and keep (-T) downloads to ${temp_dir} for later use
+        # Previous download should be present in the '{temp_dir}' folder already
+        if [ -n "$resolve_strategy" ] ; then
+            # echo resolve strategy to hbsd-update for non-interactive resolution of conflicts in /etc/ via etcupdate
+            /usr/bin/yes "$resolve_strategy" | /usr/sbin/hbsd-update -d -t "${temp_dir}" -T -D $_options
+        else
+            /usr/sbin/hbsd-update -d -t "${temp_dir}" -T -D $_options
+        fi
+        if [ $? -ne 0 ] ; then return 1 ; fi
+    else
+        error_and_exit "[!] Cannot upgrade FreeBSD systems, need HardenedBSD!"
+    fi
+}
+
+update_system() {
+    local _temp_dir="$1"
+    local _snapshot_system="$2"
+    local _keep_previous_snap="$3"
+    local _resolve_strategy="$4"
+    local _system_version="$5"
+
+    local _mountpoint="$(mktemp -d -p ${_temp_dir})"
+    local _options=""
+
+    if [ -f /usr/sbin/hbsd-update ] ; then
+        if [ -n "${_system_version}" ]; then
+            # Add -U as non-last update versions cannot be verified
+            echo "[!] Custom version of system update selected, this version will be installed without signature verification!"
+            _options="${_options} -v ${_system_version} -U"
+        fi
+        if [ "${_snapshot_system}" -gt 0 ]; then
+            /sbin/bectl create "${_snap_name}" || finalize 1 "Could not create a new Boot Environment!"
+            clean_old_BEs "${_keep_previous_snap}"
+            /sbin/bectl mount "${_snap_name}" "${_mountpoint}" || finalize 1 "Could not mount new Boot Environement!"
+            warn "[!] New BE has been created! System will need to be restarted!"
+            _options="${_options} -r ${_mountpoint}"
+        fi
+        # Store (-t) and keep (-T) downloads to ${_temp_dir} for later use
+        # Previous download should be present in the '{_temp_dir}' folder already
+        if [ -n "${_resolve_strategy}" ] ; then
+            # echo resolve strategy to hbsd-update for non-interactive resolution of conflicts in /etc/ via etcupdate
+            /usr/bin/yes "${_resolve_strategy}" | /usr/sbin/hbsd-update -d -t "${_temp_dir}" -T -D $_options
+        else
+            /usr/sbin/hbsd-update -d -t "${_temp_dir}" -T -D $_options
+        fi
+        if [ $? -ne 0 ] ; then return 1 ; fi
+    else
+        error_and_exit "[!] Cannot upgrade FreeBSD systems, need HardenedBSD!"
+    fi
+}
+
+
 ###################
 ## Miscellaneous ##
 ###################
@@ -92,6 +213,16 @@ sublist() {
     return $((_index_stop - _index_start + 1))
 }
 
+contains() {
+    local _list="$1"
+    local _elem_in_list="$2"
+
+    if echo "${_list}" | grep -q "${_elem_in_list}"; then
+        return 0
+    else
+        return 1
+    fi
+}
 
 ################################
 ## Boot Environment functions ##
@@ -107,6 +238,34 @@ list_unused_BEs() {
                 # _deletable_BEs="${_deletable_BEs} ${_name}"
             fi
         fi
+    done
+}
+
+has_pending_BE() {
+    local _temp_be_search="$(/sbin/bectl list -H | cut -f 2 | grep -F 'T')"
+    local _stable_be_search="$(/sbin/bectl list -H | cut -f 2 | grep -E '(RN|NR)')"
+
+    if [ -z "${_temp_be_search}" ] && [ -n "${_stable_be_search}" ]; then
+        return 0
+    else
+        sed -i '' '/Upgrade:/d' /var/run/motd
+        error_and_blink "Upgrade: the system has a pending new Boot Environment, please restart your machine to apply!" | tee -a /var/run/motd
+        return 1
+    fi
+}
+
+clean_old_BEs() {
+    local _number_to_keep="$1"
+    local _deletable_BEs="$(list_unused_BEs)"
+
+    if [ "${_number_to_keep}" -ne "${_number_to_keep}" ]; then
+        return 1
+    fi
+
+    _to_delete="$(sublist "${_deletable_BEs}" $((_number_to_keep+1)))"
+    for _be in $_to_delete; do
+        /bin/echo "Destroying old BE: '${_be}'"
+        /sbin/bectl destroy -o "$_be"
     done
 }
 
