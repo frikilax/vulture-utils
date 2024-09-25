@@ -99,10 +99,20 @@ download_system_update() {
     local _temp_dir="$1"
     local _use_dnssec="$2"
     local _system_version="$3"
+    local _jail="$4"
 
     local _options=""
 
     if [ -f /usr/sbin/hbsd-update ] ; then
+        if [ -n "$_jail" ] ; then
+            if [ -d /.jail_system ]; then
+                # upgrade base jail_system root with local hbsd-update.conf (for "thin" jails)
+                _options="-n -r /.jail_system/"
+            else
+                # use -j flag from hbsd-update to let it handle upgrade of "full" jail
+                _options="-n -j $_jail"
+            fi
+        fi
         if [ $_use_dnssec -eq 0 ]; then _options="${_options} -d"; fi
         if [ -n "$_system_version" ]; then
             # Add -U as non-last update versions cannot be verified

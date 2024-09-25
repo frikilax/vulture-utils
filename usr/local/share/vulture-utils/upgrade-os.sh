@@ -199,6 +199,7 @@ if [ ${upgrade_root} -gt 0 ]; then
 fi
 for jail in ${jails}; do
     /bin/echo "[+] Updating jail ${jail}..."
+    download_system_update "${temp_dir}" "${use_dnssec}" "${system_version}" "${jail}" || finalize 1 "Failed to download jail system upgrade"
     update_jail_system "${jail}" "${temp_dir}" "${resolve_strategy}" "${system_version}" || finalize 1 "Failed to install system upgrades on jail ${jail}"
 done
 /bin/echo "[-] Done."
