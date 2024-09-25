@@ -130,27 +130,27 @@ update_jail_system() {
 
     if [ -f /usr/sbin/hbsd-update ] ; then
         # If a jail is specified, execute update in it
-        if [ -n "$jail" ] ; then
+        if [ -n "$_jail" ] ; then
             if [ -d /.jail_system ]; then
                 # upgrade base jail_system root with local hbsd-update.conf (for "thin" jails)
                 _options="-n -r /.jail_system/"
             else
                 # use -j flag from hbsd-update to let it handle upgrade of "full" jail
-                _options="-n -j $jail"
+                _options="-n -j $_jail"
             fi
         fi
-        if [ -n "$system_version" ]; then
+        if [ -n "$_system_version" ]; then
             # Add -U as non-last update versions cannot be verified
             echo "[!] Custom version of system update selected, this version will be installed without signature verification!"
-            _options="${_options} -v $system_version -U"
+            _options="${_options} -v $_system_version -U"
         fi
-        # Store (-t) and keep (-T) downloads to ${temp_dir} for later use
-        # Previous download should be present in the '{temp_dir}' folder already
-        if [ -n "$resolve_strategy" ] ; then
+        # Store (-t) and keep (-T) downloads to ${_temp_dir} for later use
+        # Previous download should be present in the '{_temp_dir}' folder already
+        if [ -n "$_resolve_strategy" ] ; then
             # echo resolve strategy to hbsd-update for non-interactive resolution of conflicts in /etc/ via etcupdate
-            /usr/bin/yes "$resolve_strategy" | /usr/sbin/hbsd-update -d -t "${temp_dir}" -T -D $_options
+            /usr/bin/yes "$_resolve_strategy" | /usr/sbin/hbsd-update -d -t "${_temp_dir}" -T -D $_options
         else
-            /usr/sbin/hbsd-update -d -t "${temp_dir}" -T -D $_options
+            /usr/sbin/hbsd-update -d -t "${_temp_dir}" -T -D $_options
         fi
         if [ $? -ne 0 ] ; then return 1 ; fi
     else
