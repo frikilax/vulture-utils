@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 
-TIME_START="$(date -Iseconds)"
-TIME_START_SAFE="$(date +%Y%m%d_%H%M%S)"
+TIME_START="$(date -u -Iseconds)"
+TIME_START_SAFE="$(date -u +%Y%m%d_%H%M%S)"
 . /usr/local/share/vulture-utils/common.sh
 
 ###########
@@ -74,11 +74,7 @@ update_system() {
             _options="${_options} -v $system_version -U"
         fi
         if [ $snapshot_system -gt 0 ]; then
-            /sbin/bectl create "${_snap_name}" || finalize 1 "Could not create a new Boot Environment!"
-            clean_old_BEs "$keep_previous_snap"
-            /sbin/bectl mount "${_snap_name}" "${_mountpoint}" || finalize 1 "Could not mount new Boot Environement!"
-            warn "[!] New BE has been created! System will need to be restarted!"
-            _options="${_options} -r ${_mountpoint}"
+            _options="${_options} -b ${_snap_name}"
         fi
         # Store (-t) and keep (-T) downloads to ${temp_dir} for later use
         # Previous download should be present in the '{temp_dir}' folder already
@@ -106,7 +102,7 @@ initialize() {
         has_upgraded_kernel || exit 1
     fi
 
-    echo "[${TIME_START}+00:00] Beginning ${_action_str}"
+    echo "[${TIME_START}] Beginning ${_action_str}"
 
     trap finalize_early SIGINT
 
@@ -125,7 +121,6 @@ initialize() {
     fi
 }
 
-
 finalize() {
     # set default in case err_code is not specified
     err_code=$1
@@ -139,18 +134,6 @@ finalize() {
         echo ""
     fi
 
-    if [ $snapshot_system -gt 0 ]; then
-        if /sbin/bectl list -H -cname | grep -q "${_snap_name}"; then
-            /sbin/bectl umount "${_snap_name}" || warn "[#] Could not unmount the new BE"
-
-            if [ ${err_code} -eq 0 ]; then
-                /sbin/bectl activate "${_snap_name}"
-            else
-                /sbin/bectl destroy -Fo "${_snap_name}"
-            fi
-        fi
-    fi
-
     if [ $keep_temp_dir -eq 0 ]; then
         echo "[+] Cleaning temporary dir..."
         /bin/rm -rf "${temp_dir}"
@@ -161,10 +144,12 @@ finalize() {
         /usr/local/bin/sudo -u vlt-os /home/vlt-os/env/bin/python /home/vlt-os/vulture_os/manage.py toggle_maintenance --off 2>/dev/null || true
     fi
 
-    has_pending_BE
+    if has_pending_BE; then
+        clean_old_BEs "$keep_previous_snap"
+    fi
     has_upgraded_kernel
 
-    echo "[$(date +%Y-%m-%dT%H:%M:%S+00:00)] ${_action_str} finished!"
+    echo "[$(date -u -Iseconds)] ${_action_str} finished!"
     exit $err_code
 }
 
