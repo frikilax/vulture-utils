@@ -1,6 +1,9 @@
 name: Shellcheck
 
-on: [pull_request, push]
+on:
+  pull_request:
+    paths:
+      - '**.sh'
 
 jobs:
   shellcheck:
@@ -13,4 +16,3 @@ jobs:
         with:
           severity: warning
           check_together: 'yes'
-          format: tty
