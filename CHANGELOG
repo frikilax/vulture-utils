@@ -1,0 +1,15 @@
+# Changelog
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+
+## Unreleased
+First version of the project!
+### Added
+- [VLT-ADMIN] New command vlt-admin: allows to launch all subcommands defined on the project
+- [UPGRADE] New 'upgrade' sub-command
+    - Duplicate of vulture-base's update_system.sh script (taken from v2.1.9)
+    - New Boot Environment feature: Allows to use a Boot Environement when upgrading a machine
+- [SNAPSHOT/RESTORE] New scripts to create, list, remove and trigger snapshots and rollbacks for parts or all of the machine's datasets

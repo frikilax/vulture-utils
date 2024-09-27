@@ -1,0 +1,37 @@
+#!/bin/sh
+#
+#
+# PROVIDE: zfs_restore
+# REQUIRE: zfsbe
+# BEFORE: FILESYSTEMS var zfs
+
+. /etc/rc.subr
+
+name="zfs_restore"
+desc="Mount and share ZFS datasets"
+rcvar="zfs_restore_enable"
+start_cmd="do_zfs_restore"
+required_modules="zfs"
+
+load_rc_config $name
+
+: ${zfs_restore_enable="YES"}
+
+do_zfs_restore()
+{
+    _bootonce="$(kenv -q zfs-bootonce)"
+    if [ -n "${_bootonce}" ]; then
+        echo "zfs_restore: Not restoring ZFS datasets because machine is on a temporary BE"
+        return
+    fi
+    zfs list -tsnap -oname,snapshot:restore |\
+    while read -r _name _need_restore; do
+        if [ "$_need_restore" = "YES" ]; then
+            echo "zfs_restore: Rollbacking snapshot '${_name}'"
+            zfs rollback -r "${_name}"
+            zfs inherit snapshot:restore "${_name}"
+        fi
+    done
+}
+
+run_rc_command "$1"

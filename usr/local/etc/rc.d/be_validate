@@ -1,0 +1,50 @@
+#!/bin/sh
+#
+#
+# PROVIDE: be_validate
+# REQUIRE: LOGIN vultured
+
+. /etc/rc.subr
+
+name="be_validate"
+rcvar="be_validate_enable"
+
+load_rc_config $name
+
+: ${be_validate_enable="NO"}
+: ${be_validate_check_services="jail vultured"}
+
+name="be_validate"
+desc="Automatically validate a transient Boot Environment"
+start_cmd="do_be_validate"
+required_modules="zfs"
+
+do_be_validate()
+{
+    # Order BEs (ordered, most recent first)
+    /sbin/bectl list -H -Ccreation |\
+    while read -r _name _status _rest; do
+        if [ "${_status}" = "N" ]; then
+            echo "be_validate: Validating new Boot Environment ${_name}"
+            _everything_works=1
+            for service in ${be_validate_check_services}; do
+                echo "be_validate: Checking service ${service}"
+                if service "${service}" enabled; then
+                    echo "be_validate: ${service} enabled, checking status..."
+                    if ! service "${service}" status > /dev/null; then
+                        echo "be_validate: ${service} doesn't seem to work!"
+                        _everything_works=0
+                    fi
+                fi
+            done
+            if [ $_everything_works -eq 0 ]; then
+                echo "be_validate: Some service(s) do not work, please check logs and fix, no BE validated"
+                exit 1
+            fi
+            /sbin/bectl activate "${_name}"
+            exit 0
+        fi
+    done
+}
+
+run_rc_command "$1"
