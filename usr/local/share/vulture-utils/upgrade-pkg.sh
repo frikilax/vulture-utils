@@ -18,6 +18,7 @@ _pkg_options=""
 _vultured_was_up=0
 _cron_was_up=0
 
+
 #############
 # functions #
 #############
