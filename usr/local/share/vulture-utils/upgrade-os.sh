@@ -43,18 +43,29 @@ usage() {
 }
 
 download_system_update() {
+    local _jail="$1"
+    local _options=""
+
     if [ -f /usr/sbin/hbsd-update ] ; then
-        options=""
-        if [ $use_dnssec -eq 0 ]; then options="${options} -d"; fi
+        if [ -n "$_jail" ] ; then
+            if [ -d /.jail_system ]; then
+                # upgrade base jail_system root with local hbsd-update.conf (for "thin" jails)
+                _options="-n -r /.jail_system/"
+            else
+                # use -j flag from hbsd-update to let it handle upgrade of "full" jail
+                _options="-n -j $_jail"
+            fi
+        fi
+        if [ $use_dnssec -eq 0 ]; then _options="${_options} -d"; fi
         if [ -n "$system_version" ]; then
             # Add -U as non-last update versions cannot be verified
             echo "[!] Custom version of system update selected, this version will be installed without signature verification!"
-            options="${options} -v $system_version -U"
+            _options="${_options} -v $system_version -U"
         fi
         if [ ! -f "${temp_dir}/update.tar" ]; then
             # Store (-t) and keep (-T) downloads to ${temp_dir} for later use
             # Do not install update yet (-f)
-            /usr/sbin/hbsd-update -t "${temp_dir}" -T -f $options
+            /usr/sbin/hbsd-update -t "${temp_dir}" -T -f $_options
         fi
         if [ $? -ne 0 ] ; then return 1 ; fi
     else
@@ -245,6 +256,7 @@ if [ ${upgrade_root} -gt 0 ]; then
 fi
 for jail in ${jails}; do
     /bin/echo "[+] Updating jail ${jail}..."
+    download_system_update "${jail}" || finalize 1 "Failed to download system upgrade for jail ${jail}"
     update_system "${jail}" || finalize 1 "Failed to install system upgrades on jail ${jail}"
 done
 /bin/echo "[-] Done."
