@@ -64,10 +64,19 @@ download_system_update() {
 
 # Function used to use appropriate update binary
 update_system() {
-    local _mountpoint="$(mktemp -d -p ${temp_dir})"
+    local _jail="$1"
     local _options=""
 
     if [ -f /usr/sbin/hbsd-update ] ; then
+        if [ -n "$_jail" ] ; then
+            if [ -d /.jail_system ]; then
+                # upgrade base jail_system root with local hbsd-update.conf (for "thin" jails)
+                _options="-n -r /.jail_system/"
+            else
+                # use -j flag from hbsd-update to let it handle upgrade of "full" jail
+                _options="-n -j $_jail"
+            fi
+        fi
         if [ -n "$system_version" ]; then
             # Add -U as non-last update versions cannot be verified
             echo "[!] Custom version of system update selected, this version will be installed without signature verification!"
@@ -232,11 +241,11 @@ fi
 
 if [ ${upgrade_root} -gt 0 ]; then
     /bin/echo "[+] Updating system..."
-    update_system "${temp_dir}" "${snapshot_system}" "${keep_previous_snap}" "${resolve_strategy}" "${system_version}" || finalize 1 "Failed to install system upgrades"
+    update_system || finalize 1 "Failed to install system upgrades"
 fi
 for jail in ${jails}; do
     /bin/echo "[+] Updating jail ${jail}..."
-    update_jail_system "${jail}" "${temp_dir}" "${resolve_strategy}" "${system_version}" || finalize 1 "Failed to install system upgrades on jail ${jail}"
+    update_system "${jail}" || finalize 1 "Failed to install system upgrades on jail ${jail}"
 done
 /bin/echo "[-] Done."
 
