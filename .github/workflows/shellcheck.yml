@@ -13,4 +13,3 @@ jobs:
         with:
           severity: warning
           check_together: 'yes'
-          format: gcc
