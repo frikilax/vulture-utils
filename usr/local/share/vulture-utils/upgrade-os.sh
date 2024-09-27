@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 
-TIME_START="$(date -Iseconds)"
-TIME_START_SAFE="$(date +%Y%m%d_%H%M%S)"
+TIME_START="$(date -u -Iseconds)"
+TIME_START_SAFE="$(date -u +%Y%m%d_%H%M%S)"
 . /usr/local/share/vulture-utils/common.sh
 
 ###########
@@ -24,6 +24,7 @@ _need_maintenance_toggle=1
 _snap_name="${SNAPSHOT_PREFIX}UPGRADE_${TIME_START_SAFE}"
 _params=""
 
+
 #############
 # functions #
 #############
@@ -43,18 +44,29 @@ usage() {
 }
 
 download_system_update() {
+    local _jail="$1"
+    local _options=""
+
     if [ -f /usr/sbin/hbsd-update ] ; then
-        options=""
-        if [ $use_dnssec -eq 0 ]; then options="${options} -d"; fi
+        if [ -n "$_jail" ] ; then
+            if [ -d /.jail_system ]; then
+                # upgrade base jail_system root with local hbsd-update.conf (for "thin" jails)
+                _options="-n -r /.jail_system/"
+            else
+                # use -j flag from hbsd-update to let it handle upgrade of "full" jail
+                _options="-n -j $_jail"
+            fi
+        fi
+        if [ $use_dnssec -eq 0 ]; then _options="${_options} -d"; fi
         if [ -n "$system_version" ]; then
             # Add -U as non-last update versions cannot be verified
             echo "[!] Custom version of system update selected, this version will be installed without signature verification!"
-            options="${options} -v $system_version -U"
+            _options="${_options} -v $system_version -U"
         fi
         if [ ! -f "${temp_dir}/update.tar" ]; then
             # Store (-t) and keep (-T) downloads to ${temp_dir} for later use
             # Do not install update yet (-f)
-            /usr/sbin/hbsd-update -t "${temp_dir}" -T -f $options
+            /usr/sbin/hbsd-update -t "${temp_dir}" -T -f $_options
         fi
         if [ $? -ne 0 ] ; then return 1 ; fi
     else
@@ -64,21 +76,26 @@ download_system_update() {
 
 # Function used to use appropriate update binary
 update_system() {
-    local _mountpoint="$(mktemp -d -p ${temp_dir})"
+    local _jail="$1"
     local _options=""
 
     if [ -f /usr/sbin/hbsd-update ] ; then
+        if [ -n "$_jail" ] ; then
+            if [ -d /.jail_system ]; then
+                # upgrade base jail_system root with local hbsd-update.conf (for "thin" jails)
+                _options="-n -r /.jail_system/"
+            else
+                # use -j flag from hbsd-update to let it handle upgrade of "full" jail
+                _options="-n -j $_jail"
+            fi
+        fi
         if [ -n "$system_version" ]; then
             # Add -U as non-last update versions cannot be verified
             echo "[!] Custom version of system update selected, this version will be installed without signature verification!"
             _options="${_options} -v $system_version -U"
         fi
         if [ $snapshot_system -gt 0 ]; then
-            /sbin/bectl create "${_snap_name}" || finalize 1 "Could not create a new Boot Environment!"
-            clean_old_BEs "$keep_previous_snap"
-            /sbin/bectl mount "${_snap_name}" "${_mountpoint}" || finalize 1 "Could not mount new Boot Environement!"
-            warn "[!] New BE has been created! System will need to be restarted!"
-            _options="${_options} -r ${_mountpoint}"
+            _options="${_options} -b ${_snap_name}"
         fi
         # Store (-t) and keep (-T) downloads to ${temp_dir} for later use
         # Previous download should be present in the '{temp_dir}' folder already
@@ -106,7 +123,7 @@ initialize() {
         has_upgraded_kernel || exit 1
     fi
 
-    echo "[${TIME_START}+00:00] Beginning ${_action_str}"
+    echo "[${TIME_START}] Beginning ${_action_str}"
 
     trap finalize_early SIGINT
 
@@ -125,7 +142,6 @@ initialize() {
     fi
 }
 
-
 finalize() {
     # set default in case err_code is not specified
     err_code=$1
@@ -139,18 +155,6 @@ finalize() {
         echo ""
     fi
 
-    if [ $snapshot_system -gt 0 ]; then
-        if /sbin/bectl list -H -cname | grep -q "${_snap_name}"; then
-            /sbin/bectl umount "${_snap_name}" || warn "[#] Could not unmount the new BE"
-
-            if [ ${err_code} -eq 0 ]; then
-                /sbin/bectl activate "${_snap_name}"
-            else
-                /sbin/bectl destroy -Fo "${_snap_name}"
-            fi
-        fi
-    fi
-
     if [ $keep_temp_dir -eq 0 ]; then
         echo "[+] Cleaning temporary dir..."
         /bin/rm -rf "${temp_dir}"
@@ -161,10 +165,12 @@ finalize() {
         /usr/local/bin/sudo -u vlt-os /home/vlt-os/env/bin/python /home/vlt-os/vulture_os/manage.py toggle_maintenance --off 2>/dev/null || true
     fi
 
-    has_pending_BE
+    if has_pending_BE; then
+        clean_old_BEs "$keep_previous_snap"
+    fi
     has_upgraded_kernel
 
-    echo "[$(date +%Y-%m-%dT%H:%M:%S+00:00)] ${_action_str} finished!"
+    echo "[$(date -u -Iseconds)] ${_action_str} finished!"
     exit $err_code
 }
 
@@ -247,11 +253,12 @@ fi
 
 if [ ${upgrade_root} -gt 0 ]; then
     /bin/echo "[+] Updating system..."
-    update_system "${temp_dir}" "${snapshot_system}" "${keep_previous_snap}" "${resolve_strategy}" "${system_version}" || finalize 1 "Failed to install system upgrades"
+    update_system || finalize 1 "Failed to install system upgrades"
 fi
 for jail in ${jails}; do
     /bin/echo "[+] Updating jail ${jail}..."
-    update_jail_system "${jail}" "${temp_dir}" "${resolve_strategy}" "${system_version}" || finalize 1 "Failed to install system upgrades on jail ${jail}"
+    download_system_update "${jail}" || finalize 1 "Failed to download system upgrade for jail ${jail}"
+    update_system "${jail}" || finalize 1 "Failed to install system upgrades on jail ${jail}"
 done
 /bin/echo "[-] Done."
 

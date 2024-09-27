@@ -5,7 +5,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
-## Unreleased
+## [Unreleased]
+### Fixed
+- [UPGRADE-OS] Only create a Boot Environment when an upgrade is available
+- [UPGRADE-OS] Incorrect date format
+- [UPGRADE-OS] Correctly Download and use the upgrade when upgrading only one or more jails and base is up-to-date
+
+
+## [1.0.0] - 2024-09-11
 First version of the project!
 ### Added
 - [VLT-ADMIN] New command vlt-admin: allows to launch all subcommands defined on the project
