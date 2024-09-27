@@ -15,6 +15,7 @@ list_rollbacks=0
 rollback_to=""
 _need_restart=0
 
+
 # 'usr' and 'var' are set to nomount, so they don't hold any data (data is held by the root dataset)
 
 #############

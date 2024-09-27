@@ -42,58 +42,6 @@ usage() {
     exit 0
 }
 
-download_system_update() {
-    if [ -f /usr/sbin/hbsd-update ] ; then
-        options=""
-        if [ $use_dnssec -eq 0 ]; then options="${options} -d"; fi
-        if [ -n "$system_version" ]; then
-            # Add -U as non-last update versions cannot be verified
-            echo "[!] Custom version of system update selected, this version will be installed without signature verification!"
-            options="${options} -v $system_version -U"
-        fi
-        if [ ! -f "${temp_dir}/update.tar" ]; then
-            # Store (-t) and keep (-T) downloads to ${temp_dir} for later use
-            # Do not install update yet (-f)
-            /usr/sbin/hbsd-update -t "${temp_dir}" -T -f $options
-        fi
-        if [ $? -ne 0 ] ; then return 1 ; fi
-    else
-        error_and_exit "[!] Cannot upgrade FreeBSD systems, need HardenedBSD!"
-    fi
-}
-
-# Function used to use appropriate update binary
-update_system() {
-    local _mountpoint="$(mktemp -d -p ${temp_dir})"
-    local _options=""
-
-    if [ -f /usr/sbin/hbsd-update ] ; then
-        if [ -n "$system_version" ]; then
-            # Add -U as non-last update versions cannot be verified
-            echo "[!] Custom version of system update selected, this version will be installed without signature verification!"
-            _options="${_options} -v $system_version -U"
-        fi
-        if [ $snapshot_system -gt 0 ]; then
-            /sbin/bectl create "${_snap_name}" || finalize 1 "Could not create a new Boot Environment!"
-            clean_old_BEs "$keep_previous_snap"
-            /sbin/bectl mount "${_snap_name}" "${_mountpoint}" || finalize 1 "Could not mount new Boot Environement!"
-            warn "[!] New BE has been created! System will need to be restarted!"
-            _options="${_options} -r ${_mountpoint}"
-        fi
-        # Store (-t) and keep (-T) downloads to ${temp_dir} for later use
-        # Previous download should be present in the '{temp_dir}' folder already
-        if [ -n "$resolve_strategy" ] ; then
-            # echo resolve strategy to hbsd-update for non-interactive resolution of conflicts in /etc/ via etcupdate
-            /usr/bin/yes "$resolve_strategy" | /usr/sbin/hbsd-update -d -t "${temp_dir}" -T -D $_options
-        else
-            /usr/sbin/hbsd-update -d -t "${temp_dir}" -T -D $_options
-        fi
-        if [ $? -ne 0 ] ; then return 1 ; fi
-    else
-        error_and_exit "[!] Cannot upgrade FreeBSD systems, need HardenedBSD!"
-    fi
-}
-
 
 initialize() {
     if [ "$(/usr/bin/id -u)" != "0" ]; then
@@ -251,6 +199,7 @@ if [ ${upgrade_root} -gt 0 ]; then
 fi
 for jail in ${jails}; do
     /bin/echo "[+] Updating jail ${jail}..."
+    download_system_update "${temp_dir}" "${use_dnssec}" "${system_version}" "${jail}" || finalize 1 "Failed to download jail system upgrade"
     update_jail_system "${jail}" "${temp_dir}" "${resolve_strategy}" "${system_version}" || finalize 1 "Failed to install system upgrades on jail ${jail}"
 done
 /bin/echo "[-] Done."
